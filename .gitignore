@@ -1,0 +1,10 @@
+# 暫存檔案
+*swp
+
+# 用戶輸入檔案
+/data/*
+!data/data-here.txt
+
+# 程序輸出檔案
+/output/*
+!/output/output-here.txt

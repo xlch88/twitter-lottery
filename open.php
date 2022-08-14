@@ -10,7 +10,7 @@ $retweetUsers				= [];
 $retweetWithCommentUsers	= [];
 $commentUsers				= [];
 
-foreach(['tweetDetail', 'retweeters', 'adaptive'] as $file){
+foreach(['TweetDetail_v2', 'retweeters', 'adaptive'] as $file){
 	$data = file_get_contents("data/$file.json");
 
 	foreach(explode("\n", $data) as $line){
@@ -56,7 +56,7 @@ foreach(['tweetDetail', 'retweeters', 'adaptive'] as $file){
 				}
 				break;
 			
-			case 'tweetDetail':
+			case 'TweetDetail_v2':
 				foreach($data['data']['threaded_conversation_with_injections_v2']['instructions'] as $i){
 					if($i['type'] != 'TimelineAddEntries') continue;
 					
@@ -65,6 +65,9 @@ foreach(['tweetDetail', 'retweeters', 'adaptive'] as $file){
 						
 						foreach($e['content']['items'] as $i){
 							if($i['item']['itemContent']['itemType'] != 'TimelineTweet') continue;
+							if(($i['item']['itemContent']['tweet_results']['result']['__typename'] ?? '') === 'TweetWithVisibilityResults'){
+								$i['item']['itemContent']['tweet_results']['result'] = $i['item']['itemContent']['tweet_results']['result']['tweet'];
+							}
 							
 							$u = $i['item']['itemContent']['tweet_results']['result']['core']['user_results']['result']['legacy'];
 							$users[$u['screen_name']] = $u;

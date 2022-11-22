@@ -2,19 +2,22 @@
 $users						= [];
 $followedUsers				= [];
 
+$like						= [];
 $retweet					= [];
 $retweetWithComment			= [];
 $comment					= [];
 
+$likeUsers					= [];
 $retweetUsers				= [];
 $retweetWithCommentUsers	= [];
 $commentUsers				= [];
 
-foreach(['TweetDetail_v2', 'retweeters', 'adaptive'] as $file){
+foreach(['TweetDetail_v2', 'retweeters', 'adaptive', 'Favoriters'] as $file){
 	$data = file_get_contents("data/$file.json");
 
 	foreach(explode("\n", $data) as $line){
 		$data = json_decode($line, true);
+		if(!$data) continue;
 		
 		switch($file){
 			case 'adaptive':
@@ -83,6 +86,22 @@ foreach(['TweetDetail_v2', 'retweeters', 'adaptive'] as $file){
 					}
 				}
 				break;
+			
+			case 'Favoriters':
+				foreach($data['data']['favoriters_timeline']['timeline']['instructions'] as $i){
+					if($i['type'] != 'TimelineAddEntries') continue;
+					
+					foreach($i['entries'] as $e){
+						if(!isset($e['content']['itemContent']['user_results']['result']['legacy'])) continue;
+						
+						$u = $e['content']['itemContent']['user_results']['result']['legacy'];
+						$users[$u['screen_name']] = $u;
+						$likeUsers[] = $u['screen_name'];
+						
+						$like[] = $u['screen_name'];
+					}
+				}
+				break;
 		}
 	}
 }
@@ -91,15 +110,25 @@ $followedUsers				= array_keys(array_filter($users, function($v, $k){ return $v[
 $retweetUsers				= array_values(array_unique($retweetUsers));
 $retweetWithCommentUsers	= array_values(array_unique($retweetWithCommentUsers));
 $commentUsers				= array_values(array_unique($commentUsers));
-$luckyUsers					= array_intersect($followedUsers, array_values(array_unique(array_merge($retweetUsers, $retweetWithCommentUsers))), $commentUsers);
+$likeUsers					= array_values(array_unique($likeUsers));
+$luckyUsers					= array_values(array_intersect($followedUsers, array_values(array_unique(array_merge($retweetUsers, $retweetWithCommentUsers))), $likeUsers));
 $ineligibleUsers			= array_diff(array_values(array_unique(array_merge($followedUsers, array_values(array_unique(array_merge($retweetUsers, $retweetWithCommentUsers))), $commentUsers))) , $luckyUsers);
-$winner						= array_map(function($v)use($luckyUsers){ return $luckyUsers[$v]; }, array_rand($luckyUsers, 20));
+
+$winner = [];
+while (count($winner) < 30){
+    if (!in_array($luckyUsers[$i = random_int(0, count($luckyUsers) - 1)], $winner)) {
+        $winner[] = $luckyUsers[$i];
+    }
+}
+
+array_map(function($v)use($luckyUsers){ return $luckyUsers[$v]; }, array_rand($luckyUsers, 30));
 
 $ineligible = [];
 foreach($ineligibleUsers as $u){
 	if(!in_array($u, $followedUsers))			$ineligible[$u][] = 'followed';
 	if(!in_array($u, $retweetUsers) && !in_array($u, $retweetWithCommentUsers))			$ineligible[$u][] = 'retweet';
-	if(!in_array($u, $commentUsers))			$ineligible[$u][] = 'comment';
+	//if(!in_array($u, $commentUsers))			$ineligible[$u][] = 'comment';
+	if(!in_array($u, $likeUsers))				$ineligible[$u][] = 'like';
 }
 
 $result = implode("\r\n", [
@@ -127,16 +156,18 @@ echo "\r\n\r\n--------------------------------------------\r\n\r\n";
 echo $result;
 
 file_put_contents('result.txt', 					$result);
-file_put_contents('output/users_data.json',			json_encode($users, JSON_UNESCAPED_UNICODE));
-file_put_contents('output/ineligible.json',			json_encode($ineligible, JSON_UNESCAPED_UNICODE));
-file_put_contents('output/retweet.json',			json_encode($retweet, JSON_UNESCAPED_UNICODE));
-file_put_contents('output/retweetWithComment.json',	json_encode($retweetWithComment, JSON_UNESCAPED_UNICODE));
-file_put_contents('output/comment.json',			json_encode($comment, JSON_UNESCAPED_UNICODE));
+file_put_contents('output/users_data.json',			json_encode($users, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+file_put_contents('output/ineligible.json',			json_encode($ineligible, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+file_put_contents('output/retweet.json',			json_encode($retweet, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+file_put_contents('output/like.json',				json_encode($like, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+file_put_contents('output/retweetWithComment.json',	json_encode($retweetWithComment, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+file_put_contents('output/comment.json',			json_encode($comment, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 file_put_contents('output/users.json',				json_encode([
 	'retweet'				=> $retweetUsers,
 	'retweetWithComment'	=> $retweetWithCommentUsers,
 	'comment'				=> $commentUsers,
+	'like'					=> $likeUsers,
 	'followed'				=> $followedUsers,
 	'lucky'					=> $luckyUsers,
 	'winner'				=> $winner
-], JSON_UNESCAPED_UNICODE));
+], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
